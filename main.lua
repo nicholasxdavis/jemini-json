@@ -1,8 +1,9 @@
 local json = require "json"
 local ui = require "ui"
 local utf8 = require "utf8"
-local icon = love.image.newImageData("assets/icon.png")
-    love.window.setIcon(icon)
+-- Wrap icon loading in pcall to prevent crash if assets are missing
+local status, icon = pcall(love.image.newImageData, "assets/icon.png")
+if status then love.window.setIcon(icon) end
 
 local state = {
     screen = "MENU", 
@@ -185,9 +186,14 @@ function normalize_project(decoded)
             end
         end
     end
+    
+    -- Normalize paths: Convert backslashes to forward slashes for consistency
     for _, file in ipairs(project.files) do
-        if file.filename then file.filename = file.filename:gsub("%.%.", ".") end
+        if file.filename then 
+            file.filename = file.filename:gsub("\\", "/"):gsub("%.%.", ".") 
+        end
     end
+    
     table.sort(project.files, function(a,b) return a.filename < b.filename end)
     return project
 end
@@ -506,21 +512,54 @@ function export_project()
     log("Exporting to: " .. full_path)
     
     local os_name = love.system.getOS()
-    if os_name == "Windows" then os.execute('mkdir "' .. full_path:gsub("/", "\\") .. '" >nul 2>nul')
-    else os.execute('mkdir -p "' .. full_path .. '"') end
     
-    local batch_content = "@echo off\n"
-    batch_content = batch_content .. 'mkdir "' .. full_path:gsub("/", "\\") .. '" >nul 2>nul\n'
+    -- Detect required subdirectories from filenames
+    local dirs_to_create = {}
+    for _, file in ipairs(state.project.files) do
+        local dir = file.filename:match("(.*)/")
+        if dir then dirs_to_create[dir] = true end
+    end
+    
+    local batch_content = ""
+    
+    if os_name == "Windows" then
+        -- Windows: Create root dir
+        os.execute('mkdir "' .. full_path:gsub("/", "\\") .. '" >nul 2>nul')
+        
+        batch_content = "@echo off\n"
+        batch_content = batch_content .. 'mkdir "' .. full_path:gsub("/", "\\") .. '" >nul 2>nul\n'
+        
+        -- Windows: Create subdirectories in batch
+        for dir, _ in pairs(dirs_to_create) do
+            local dir_path = full_path .. "/" .. dir
+            -- Run locally to ensure they exist before copying if not using batch immediately
+            os.execute('mkdir "' .. dir_path:gsub("/", "\\") .. '" >nul 2>nul')
+            -- Add to batch
+            batch_content = batch_content .. 'mkdir "' .. dir_path:gsub("/", "\\") .. '" >nul 2>nul\n'
+        end
+        
+    else
+        -- Linux/Mac: Create root dir and subdirs
+        os.execute('mkdir -p "' .. full_path .. '"')
+        for dir, _ in pairs(dirs_to_create) do
+            os.execute('mkdir -p "' .. full_path .. '/' .. dir .. '"')
+        end
+    end
+    
+    -- Write temp files and copy them
     for i, file in ipairs(state.project.files) do
         local temp_name = "temp_" .. i .. ".dat"
         love.filesystem.write(temp_name, file.content)
         local src = save_dir .. "/" .. temp_name
         local dst = full_path .. "/" .. file.filename
+        
         if os_name == "Windows" then
             src = src:gsub("/", "\\")
             dst = dst:gsub("/", "\\")
             batch_content = batch_content .. 'copy /Y "' .. src .. '" "' .. dst .. '" >nul\n'
-        else os.execute('cp "' .. src .. '" "' .. dst .. '"') end
+        else 
+            os.execute('cp "' .. src .. '" "' .. dst .. '"') 
+        end
     end
     
     if os_name == "Windows" then
@@ -697,7 +736,21 @@ function draw_editor(w, h)
             love.graphics.rectangle("fill", 5, fy, sidebar_w-10, 35)
         end
         love.graphics.setColor(1, 1, 1)
-        ui.print(file.filename, 15, fy - 1, 3) 
+        
+        -- == MODIFIED SECTION: Truncate and Lowercase ==
+        local f_name = file.filename:lower()
+        local max_w = sidebar_w - 30
+        
+        -- If width * 3 (scale) > max width, truncate loop
+        if ui.get_font():getWidth(f_name) * 3 > max_w then
+            while ui.get_font():getWidth(f_name .. "...") * 3 > max_w and #f_name > 0 do
+                f_name = f_name:sub(1, -2)
+            end
+            f_name = f_name .. "..."
+        end
+        -- ==============================================
+        
+        ui.print(f_name, 15, fy - 1, 3) 
     end
 
     love.graphics.setScissor(bx, by, bw, bh)
@@ -708,7 +761,18 @@ function draw_editor(w, h)
     love.graphics.rectangle("fill", bx, by, bw, 40)
     
     love.graphics.setColor(1, 1, 1)
-    ui.print(state.project.files[state.selected_file].filename, bx + 20, by + 2, 3)
+    
+    -- Also truncate the filename in the header bar if it's too long
+    local header_name = state.project.files[state.selected_file].filename
+    local h_max_w = bw - 40
+    if ui.get_font():getWidth(header_name) * 3 > h_max_w then
+         while ui.get_font():getWidth(header_name .. "...") * 3 > h_max_w and #header_name > 0 do
+            header_name = header_name:sub(1, -2)
+        end
+        header_name = header_name .. "..."
+    end
+    
+    ui.print(header_name, bx + 20, by + 2, 3)
     
     local start_y = by + 50
     local font = ui.get_font()

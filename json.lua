@@ -109,4 +109,34 @@ function json.decode(str)
   end
 end
 
+function json.encode(val)
+    if type(val) == "table" then
+        local kind = kind_of(val)
+        if kind == "array" then
+            local res = "["
+            for i, v in ipairs(val) do
+                res = res .. json.encode(v)
+                if i < #val then res = res .. "," end
+            end
+            return res .. "]"
+        else
+            local res = "{"
+            local keys = {}
+            for k in pairs(val) do table.insert(keys, k) end
+            table.sort(keys) -- Consistent ordering
+            for i, k in ipairs(keys) do
+                res = res .. '"' .. escape_str(tostring(k)) .. '":' .. json.encode(val[k])
+                if i < #keys then res = res .. "," end
+            end
+            return res .. "}"
+        end
+    elseif type(val) == "string" then
+        return '"' .. escape_str(val) .. '"'
+    elseif type(val) == "number" or type(val) == "boolean" then
+        return tostring(val)
+    else
+        return "null"
+    end
+end
+
 return json
