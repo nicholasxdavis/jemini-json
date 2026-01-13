@@ -1,0 +1,170 @@
+{
+  "project_name": "json projects",
+  "files": [
+    {
+      "location": "electron_chaos",
+      "filename": "electron_chaos/package.json",
+      "content": "{\n  \"name\": \"electron-chaos\",\n  \"version\": \"2.0.0\",\n  \"main\": \"src/main.js\",\n  \"scripts\": {\n    \"start\": \"electron .\"\n  },\n  \"devDependencies\": {\n    \"electron\": \"^28.0.0\"\n  }\n}"
+    },
+    {
+      "location": "electron_chaos/src",
+      "filename": "electron_chaos/src/main.js",
+      "content": "const { app, BrowserWindow, ipcMain } = require('electron');\nconst path = require('path');\nconst { generateEntropy } = require('./utils/entropy');\n\nconst createWindow = () => {\n  const win = new BrowserWindow({\n    width: 1024,\n    height: 768,\n    webPreferences: {\n      preload: path.join(__dirname, 'preload.js')\n    }\n  });\n  win.loadFile('src/index.html');\n  \n  setInterval(() => {\n    const data = generateEntropy();\n    win.webContents.send('entropy-update', data);\n  }, 500 + Math.random() * 1000);\n};\n\napp.whenReady().then(() => createWindow());"
+    },
+    {
+      "location": "electron_chaos/src/utils",
+      "filename": "electron_chaos/src/utils/entropy.js",
+      "content": "module.exports.generateEntropy = () => {\n  return {\n    cpu_spike: Math.random() > 0.8 ? 100 : Math.floor(Math.random() * 40),\n    memory_leak_simulation: Math.floor(Math.random() * 1024 * 1024),\n    system_integrity: Math.random().toString(36).substring(7)\n  };\n};"
+    },
+    {
+      "location": "electron_chaos/src",
+      "filename": "electron_chaos/src/preload.js",
+      "content": "const { contextBridge, ipcRenderer } = require('electron');\n\ncontextBridge.exposeInMainWorld('electronAPI', {\n  onEntropy: (callback) => ipcRenderer.on('entropy-update', (_event, value) => callback(value))\n});"
+    },
+    {
+      "location": "electron_chaos/src",
+      "filename": "electron_chaos/src/index.html",
+      "content": "<!DOCTYPE html>\n<html>\n<head>\n    <title>Chaos Monitor</title>\n    <link rel='stylesheet' href='styles.css'>\n</head>\n<body>\n    <h1>System Entropy</h1>\n    <div id='grid' class='grid-container'></div>\n    <script src='renderer.js'></script>\n</body>\n</html>"
+    },
+    {
+      "location": "electron_chaos/src",
+      "filename": "electron_chaos/src/styles.css",
+      "content": "body { background: #1a1a1a; color: #0f0; font-family: monospace; }\n.grid-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }\n.card { border: 1px solid #333; padding: 20px; background: #222; transition: all 0.2s; }\n.critical { border-color: red; color: red; transform: scale(1.05); }"
+    },
+    {
+      "location": "electron_chaos/src",
+      "filename": "electron_chaos/src/renderer.js",
+      "content": "const grid = document.getElementById('grid');\n\nwindow.electronAPI.onEntropy((data) => {\n  const div = document.createElement('div');\n  div.className = 'card';\n  div.innerHTML = `CPU: ${data.cpu_spike}% <br> LEAK: ${data.memory_leak_simulation}B <br> HASH: ${data.system_integrity}`;\n  \n  if (data.cpu_spike > 90) div.classList.add('critical');\n  \n  grid.prepend(div);\n  if (grid.children.length > 9) grid.lastChild.remove();\n});"
+    },
+    {
+      "location": "tauri_fractal/src-tauri",
+      "filename": "tauri_fractal/src-tauri/Cargo.toml",
+      "content": "[package]\nname = \"tauri-fractal\"\nversion = \"0.2.0\"\nedition = \"2021\"\n\n[build-dependencies]\ntauri-build = { version = \"1\", features = [] }\n\n[dependencies]\ntauri = { version = \"1\", features = [\"shell-open\"] }\nserde = { version = \"1.0\", features = [\"derive\"] }\nserde_json = \"1.0\"\nrand = \"0.8\""
+    },
+    {
+      "location": "tauri_fractal/src-tauri/src",
+      "filename": "tauri_fractal/src-tauri/src/main.rs",
+      "content": "#![cfg_attr(not(debug_assertions), windows_subsystem = \"windows\")]\nuse rand::Rng;\n\n#[tauri::command]\nfn generate_chaos_coords(iterations: usize) -> Vec<(f64, f64)> {\n    let mut rng = rand::thread_rng();\n    let mut points = Vec::new();\n    let mut x = 0.0;\n    let mut y = 0.0;\n\n    for _ in 0..iterations {\n        let r: f64 = rng.gen();\n        let (a, b, c, d, e, f) = if r < 0.01 { (0.0, 0.0, 0.0, 0.16, 0.0, 0.0) }\n        else if r < 0.86 { (0.85, 0.04, -0.04, 0.85, 0.0, 1.60) }\n        else if r < 0.93 { (0.20, -0.26, 0.23, 0.22, 0.0, 1.60) }\n        else { (-0.15, 0.28, 0.26, 0.24, 0.0, 0.44) };\n        \n        let next_x = a * x + b * y + e;\n        let next_y = c * x + d * y + f;\n        x = next_x;\n        y = next_y;\n        points.push((x, y));\n    }\n    points\n}\n\nfn main() {\n    tauri::Builder::default()\n        .invoke_handler(tauri::generate_handler![generate_chaos_coords])\n        .run(tauri::generate_context!())\n        .expect(\"error running tauri app\");\n}"
+    },
+    {
+      "location": "tauri_fractal/src",
+      "filename": "tauri_fractal/src/index.html",
+      "content": "<!DOCTYPE html>\n<html>\n<head><title>Fractal</title></head>\n<body>\n  <canvas id=\"cvs\"></canvas>\n  <script>\n    const { invoke } = window.__TAURI__.tauri;\n    const ctx = document.getElementById('cvs').getContext('2d');\n    document.getElementById('cvs').width = 800;\n    document.getElementById('cvs').height = 600;\n\n    async function draw() {\n      const points = await invoke('generate_chaos_coords', { iterations: 10000 });\n      ctx.fillStyle = 'rgba(0, 255, 0, 0.5)';\n      points.forEach(p => {\n         const px = (p[0] * 50) + 400;\n         const py = 600 - ((p[1] * 50) + 50);\n         ctx.fillRect(px, py, 1, 1);\n      });\n    }\n    draw();\n  </script>\n</body>\n</html>"
+    },
+    {
+      "location": "kinetic_spa",
+      "filename": "kinetic_spa/index.html",
+      "content": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Kinetic Core</title>\n    <link rel=\"stylesheet\" href=\"css/main.css\">\n    <link rel=\"stylesheet\" href=\"css/theme.css\">\n</head>\n<body>\n    <div id=\"overlay\">\n        <h1 id=\"title\">VOID</h1>\n        <p id=\"status\">Initializing physics...</p>\n    </div>\n    <canvas id=\"stage\"></canvas>\n    <script type=\"module\" src=\"js/app.js\"></script>\n</body>\n</html>"
+    },
+    {
+      "location": "kinetic_spa/css",
+      "filename": "kinetic_spa/css/main.css",
+      "content": "body, html { margin: 0; overflow: hidden; height: 100%; background: #000; }\n#stage { position: absolute; top: 0; left: 0; z-index: 1; }\n#overlay { position: absolute; z-index: 2; color: white; width: 100%; text-align: center; top: 40%; pointer-events: none; }"
+    },
+    {
+      "location": "kinetic_spa/js",
+      "filename": "kinetic_spa/js/app.js",
+      "content": "import { ParticleSystem } from './particles.js';\n\nconst canvas = document.getElementById('stage');\nconst ctx = canvas.getContext('2d');\ncanvas.width = window.innerWidth;\ncanvas.height = window.innerHeight;\n\nconst system = new ParticleSystem(500, canvas.width, canvas.height);\n\nfunction loop() {\n    ctx.fillStyle = 'rgba(0,0,0,0.1)';\n    ctx.fillRect(0,0,canvas.width, canvas.height);\n    system.update();\n    system.draw(ctx);\n    requestAnimationFrame(loop);\n}\nloop();"
+    },
+    {
+      "location": "kinetic_spa/js",
+      "filename": "kinetic_spa/js/particles.js",
+      "content": "export class ParticleSystem {\n    constructor(count, w, h) {\n        this.particles = Array.from({length: count}, () => ({\n            x: Math.random() * w,\n            y: Math.random() * h,\n            vx: (Math.random() - 0.5) * 4,\n            vy: (Math.random() - 0.5) * 4,\n            hue: Math.random() * 360\n        }));\n        this.w = w; this.h = h;\n    }\n    update() {\n        this.particles.forEach(p => {\n            p.x += p.vx; p.y += p.vy;\n            if(p.x < 0 || p.x > this.w) p.vx *= -1;\n            if(p.y < 0 || p.y > this.h) p.vy *= -1;\n            p.hue = (p.hue + 1) % 360;\n        });\n    }\n    draw(ctx) {\n        this.particles.forEach(p => {\n            ctx.fillStyle = `hsl(${p.hue}, 100%, 50%)`;\n            ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill();\n        });\n    }\n}"
+    },
+    {
+      "location": "procedural_cave",
+      "filename": "procedural_cave/index.html",
+      "content": "<!DOCTYPE html>\n<html><body><canvas id=\"g\" width=\"800\" height=\"600\"></canvas><script src=\"game.js\"></script></body></html>"
+    },
+    {
+      "location": "procedural_cave",
+      "filename": "procedural_cave/game.js",
+      "content": "const C = document.getElementById('g').getContext('2d');\nconst S = 10; const W = 80; const H = 60;\nlet map = [];\n\nfunction init() {\n    for(let i=0; i<W*H; i++) map[i] = Math.random() > 0.45 ? 1 : 0;\n    for(let i=0; i<5; i++) smooth();\n    draw();\n}\n\nfunction smooth() {\n    let newMap = [...map];\n    for(let y=0; y<H; y++) {\n        for(let x=0; x<W; x++) {\n            let walls = 0;\n            for(let dy=-1; dy<=1; dy++) {\n                for(let dx=-1; dx<=1; dx++) {\n                    let nx = x+dx, ny = y+dy;\n                    if(nx<0||nx>=W||ny<0||ny>=H) walls++;\n                    else if(map[ny*W+nx] === 1) walls++;\n                }\n            }\n            newMap[y*W+x] = walls > 4 ? 1 : 0;\n        }\n    }\n    map = newMap;\n}\n\nfunction draw() {\n    C.fillStyle = '#000'; C.fillRect(0,0,800,600);\n    C.fillStyle = '#444';\n    for(let y=0; y<H; y++) {\n        for(let x=0; x<W; x++) {\n            if(map[y*W+x] === 1) C.fillRect(x*S, y*S, S, S);\n        }\n    }\n}\ninit();"
+    },
+    {
+      "location": "love2d_chaos",
+      "filename": "love2d_chaos/main.lua",
+      "content": "local ECS = require 'lib.ecs'\nlocal System = require 'systems.physics'\n\nfunction love.load()\n    math.randomseed(os.time())\n    World = ECS.new()\n    for i=1, 100 do\n        World:addEntity({\n            pos = {x = math.random(0, 800), y = math.random(0, 600)},\n            vel = {x = math.random(-100, 100), y = math.random(-100, 100)},\n            size = math.random(5, 20),\n            color = {math.random(), math.random(), math.random()}\n        })\n    end\nend\n\nfunction love.update(dt)\n    System.update(World.entities, dt)\nend\n\nfunction love.draw()\n    System.draw(World.entities)\nend"
+    },
+    {
+      "location": "love2d_chaos/lib",
+      "filename": "love2d_chaos/lib/ecs.lua",
+      "content": "local M = {}\nM.__index = M\nfunction M.new() return setmetatable({entities = {}}, M) end\nfunction M:addEntity(e) table.insert(self.entities, e) end\nreturn M"
+    },
+    {
+      "location": "love2d_chaos/systems",
+      "filename": "love2d_chaos/systems/physics.lua",
+      "content": "local S = {}\nfunction S.update(entities, dt)\n    for _, e in ipairs(entities) do\n        e.pos.x = e.pos.x + e.vel.x * dt\n        e.pos.y = e.pos.y + e.vel.y * dt\n        if e.pos.x < 0 or e.pos.x > 800 then e.vel.x = -e.vel.x end\n        if e.pos.y < 0 or e.pos.y > 600 then e.vel.y = -e.vel.y end\n    end\nend\nfunction S.draw(entities)\n    for _, e in ipairs(entities) do\n        love.graphics.setColor(e.color)\n        love.graphics.circle(\"fill\", e.pos.x, e.pos.y, e.size)\n    end\nend\nreturn S"
+    },
+    {
+      "location": "python_market",
+      "filename": "python_market/main.py",
+      "content": "from market.engine import Market\nfrom market.trader import Trader\nimport time\nimport threading\n\ndef main():\n    m = Market(\"CRYPTO_LUNA\", 100.0)\n    traders = [Trader(f\"Bot_{i}\", m) for i in range(5)]\n    \n    print(\"Starting High-Frequency Trading Simulation...\")\n    \n    for t in traders:\n        t.start()\n        \n    try:\n        while True:\n            m.print_status()\n            time.sleep(1)\n    except KeyboardInterrupt:\n        m.active = False\n        print(\"Market Closed.\")\n\nif __name__ == \"__main__\":\n    main()"
+    },
+    {
+      "location": "python_market/market",
+      "filename": "python_market/market/engine.py",
+      "content": "import random\nimport threading\n\nclass Market:\n    def __init__(self, name, price):\n        self.name = name\n        self.price = price\n        self.lock = threading.Lock()\n        self.active = True\n        self.volatility = 0.05\n\n    def update(self, delta):\n        with self.lock:\n            change = self.price * delta\n            self.price += change\n            if random.random() < 0.01: self.price *= 0.5\n\n    def print_status(self):\n        print(f\"[{self.name}] Current Price: ${self.price:.2f}\")"
+    },
+    {
+      "location": "python_market/market",
+      "filename": "python_market/market/trader.py",
+      "content": "import threading\nimport time\nimport random\n\nclass Trader(threading.Thread):\n    def __init__(self, name, market):\n        super().__init__()\n        self.name = name\n        self.market = market\n\n    def run(self):\n        while self.market.active:\n            sentiment = random.uniform(-0.1, 0.1)\n            self.market.update(sentiment)\n            time.sleep(random.uniform(0.1, 0.5))"
+    },
+    {
+      "location": "node_rpg",
+      "filename": "node_rpg/index.js",
+      "content": "const Game = require('./lib/game');\nconst game = new Game();\ngame.start();"
+    },
+    {
+      "location": "node_rpg/lib",
+      "filename": "node_rpg/lib/game.js",
+      "content": "const readline = require('readline');\nconst State = require('./state');\n\nclass Game {\n  constructor() {\n    this.state = new State();\n    this.rl = readline.createInterface({ input: process.stdin, output: process.stdout });\n  }\n  start() {\n    console.log(\"--- DARK FOREST CLI ---\");\n    this.loop();\n  }\n  loop() {\n    const event = this.state.generateEvent();\n    this.rl.question(`\\n${event.description} (fight/run): `, (ans) => {\n      const outcome = this.state.resolve(ans, event);\n      console.log(outcome);\n      if (this.state.hp > 0) this.loop();\n      else { console.log(\"GAME OVER\"); this.rl.close(); }\n    });\n  }\n}\nmodule.exports = Game;"
+    },
+    {
+      "location": "node_rpg/lib",
+      "filename": "node_rpg/lib/state.js",
+      "content": "class State {\n  constructor() { this.hp = 100; this.xp = 0; }\n  generateEvent() {\n    const monsters = ['Goblin', 'Shadow', 'Glitch'];\n    return {\n      type: 'combat',\n      name: monsters[Math.floor(Math.random() * monsters.length)],\n      description: `A wild ${monsters[Math.floor(Math.random() * monsters.length)]} appears!`,\n      power: Math.floor(Math.random() * 20)\n    };\n  }\n  resolve(action, event) {\n    if (action === 'fight') {\n      const dmg = Math.random() > 0.5 ? 0 : event.power;\n      this.hp -= dmg;\n      return dmg === 0 ? \"You dodged and won!\" : `You took ${dmg} damage.`;\n    }\n    return \"You ran away safely.\";\n  }\n}\nmodule.exports = State;"
+    },
+    {
+      "location": "java_loot/src",
+      "filename": "java_loot/src/Main.java",
+      "content": "package src;\nimport src.generator.LootFactory;\nimport src.models.Item;\n\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println(\"Generating 5 Legendary Artifacts...\");\n        for(int i=0; i<5; i++) {\n            Item item = LootFactory.generate(0.9f);\n            System.out.println(item);\n        }\n    }\n}"
+    },
+    {
+      "location": "java_loot/src/models",
+      "filename": "java_loot/src/models/Item.java",
+      "content": "package src.models;\n\npublic class Item {\n    public String name;\n    public String rarity;\n    public int power;\n    \n    public Item(String n, String r, int p) {\n        name = n; rarity = r; power = p;\n    }\n    public String toString() { return String.format(\"[%s] %s (Power: %d)\", rarity, name, power); }\n}"
+    },
+    {
+      "location": "java_loot/src/generator",
+      "filename": "java_loot/src/generator/LootFactory.java",
+      "content": "package src.generator;\nimport src.models.Item;\nimport java.util.Random;\n\npublic class LootFactory {\n    private static final String[] PREFIX = {\"Void\", \"Star\", \"Cursed\", \"Holy\"};\n    private static final String[] WEAPON = {\"Blade\", \"Wand\", \"Scythe\", \"Hammer\"};\n    private static Random rng = new Random();\n\n    public static Item generate(float luck) {\n        float roll = rng.nextFloat() + luck * 0.2f;\n        String rarity = roll > 0.9 ? \"LEGENDARY\" : (roll > 0.6 ? \"RARE\" : \"COMMON\");\n        int power = (int)(rng.nextInt(100) * (roll + 1.0));\n        String name = PREFIX[rng.nextInt(PREFIX.length)] + \" \" + WEAPON[rng.nextInt(WEAPON.length)];\n        return new Item(name, rarity, power);\n    }\n}"
+    },
+    {
+      "location": "cpp_fire",
+      "filename": "cpp_fire/main.cpp",
+      "content": "#include \"include/fire.h\"\n#include <thread>\n#include <chrono>\n\nint main() {\n    FireSimulation sim(80, 24);\n    while(true) {\n        sim.update();\n        sim.render();\n        std::this_thread::sleep_for(std::chrono::milliseconds(50));\n    }\n    return 0;\n}"
+    },
+    {
+      "location": "cpp_fire/include",
+      "filename": "cpp_fire/include/fire.h",
+      "content": "#ifndef FIRE_H\n#define FIRE_H\n#include <vector>\n#include <iostream>\n\nclass FireSimulation {\n    int w, h;\n    std::vector<int> buffer;\npublic:\n    FireSimulation(int width, int height);\n    void update();\n    void render();\n};\n#endif"
+    },
+    {
+      "location": "cpp_fire/src",
+      "filename": "cpp_fire/src/fire.cpp",
+      "content": "#include \"../include/fire.h\"\n#include <cstdlib>\n\nconst char* RAMP = \" .:-=+*#%@\";\n\nFireSimulation::FireSimulation(int width, int height) : w(width), h(height) {\n    buffer.resize(w * h, 0);\n    // Seed bottom row\n    for(int x=0; x<w; x++) buffer[(h-1)*w + x] = 9;\n}\n\nvoid FireSimulation::update() {\n    for(int x=0; x<w; x++) {\n        for(int y=1; y<h; y++) {\n            int src = y*w + x;\n            int pixel = buffer[src];\n            if(pixel == 0) {\n                buffer[(y-1)*w + x] = 0;\n            } else {\n                int randIdx = (rand() % 3) - 1;\n                int dst = (y-1)*w + x + randIdx;\n                if(dst >= 0 && dst < w*h) \n                    buffer[dst] = pixel - (rand() & 1);\n            }\n        }\n    }\n}\n\nvoid FireSimulation::render() {\n    std::cout << \"\\033[H\"; // Move cursor home\n    for(int y=0; y<h-1; y++) {\n        for(int x=0; x<w; x++) {\n            int val = buffer[y*w+x];\n            if(val < 0) val = 0;\n            std::cout << RAMP[val];\n        }\n        std::cout << \"\\n\";\n    }\n}"
+    },
+    {
+      "location": "bash_matrix",
+      "filename": "bash_matrix/matrix.sh",
+      "content": "#!/bin/bash\n\nsource lib/utils.sh\n\ntrap \"tput rmcup; exit\" SIGINT\ntput smcup\nclear\n\nCOLS=$(tput cols)\nROWS=$(tput lines)\ndeclare -a drops\n\n# Initialize rain drops\nfor ((c=0; c<COLS; c++)); do drops[$c]=$((RANDOM % ROWS)); done\n\nwhile true; do\n    for ((c=0; c<COLS; c++)); do\n        # Unpredictable drawing\n        len=$((RANDOM % 5 + 5))\n        y=${drops[$c]}\n        \n        draw_char $c $y $(get_random_char) 2\n        draw_char $c $((y - 1)) $(get_random_char) 46\n        draw_char $c $((y - len)) \" \" 0\n        \n        if [[ $y -gt $ROWS ]] || [[ $((RANDOM % 10)) -eq 0 ]]; then\n             drops[$c]=0\n        else\n             ((drops[$c]++))\n        fi\n    done\n    sleep 0.05\ndone"
+    },
+    {
+      "location": "bash_matrix/lib",
+      "filename": "bash_matrix/lib/utils.sh",
+      "content": "#!/bin/bash\n\nget_random_char() {\n    chars=\"abcdefghijklmnopqrstuvwxyz0123456789@#$%^&*\"\n    echo \"${chars:RANDOM%${#chars}:1}\"\n}\n\ndraw_char() {\n    # $1=x, $2=y, $3=char, $4=color_code\n    tput cup $2 $1\n    tput setaf $4\n    echo -n \"$3\"\n}"
+    }
+  ]
+}

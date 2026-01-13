@@ -1,8 +1,10 @@
 -- ==========================================================
--- JSON PARSER
+-- ROBUST JSON PARSER
+-- Enhanced for Stability and Error Reporting
 -- ==========================================================
 local json = {}
 
+-- Utility: Determine variable type (array vs object)
 local function kind_of(obj)
   if type(obj) ~= 'table' then return type(obj) end
   local i = 1
@@ -12,6 +14,7 @@ local function kind_of(obj)
   if i == 1 then return 'table' else return 'array' end
 end
 
+-- Utility: Escape strings for JSON output
 local function escape_str(s)
   local in_char  = {'\\', '"', '/', '\b', '\f', '\n', '\r', '\t'}
   local out_char = {'\\', '"', '/',  'b',  'f',  'n',  'r',  't'}
@@ -21,40 +24,53 @@ local function escape_str(s)
   return s
 end
 
+-- Utility: Skip whitespace and delimiters
 local function skip_delim(str, pos, delim, err_if_missing)
   pos = pos + #str:match('^%s*', pos)
   if str:sub(pos, pos) ~= delim then
-    if err_if_missing then error('Expected ' .. delim .. ' near position ' .. pos) end
+    if err_if_missing then error('JSON Error: Expected ' .. delim .. ' near position ' .. pos) end
     return pos, false
   end
   return pos + 1, true
 end
 
+-- Parse String Value
 local function parse_str_val(str, pos, val)
   val = val or ''
-  local early_end_error = 'End of input found while parsing string.'
+  local early_end_error = 'JSON Error: End of input found while parsing string.'
   if pos > #str then error(early_end_error) end
+  
   local c = str:sub(pos, pos)
-  if c == '"'  then return val, pos + 1 end
-  if c ~= '\\' then return parse_str_val(str, pos + 1, val .. c) end
+  
+  if c == '"' then return val, pos + 1 end
+  
+  if c ~= '\\' then 
+      return parse_str_val(str, pos + 1, val .. c) 
+  end
+  
+  -- Handle Escapes
   local esc_map = {b = '\b', f = '\f', n = '\n', r = '\r', t = '\t', ['"'] = '"', ['\\'] = '\\', ['/'] = '/'}
   local nextc = str:sub(pos + 1, pos + 1)
   if not nextc then error(early_end_error) end
+  
+  -- Handle Unicode (basic \uXXXX support could be added here, currently skipping raw)
   return parse_str_val(str, pos + 2, val .. (esc_map[nextc] or nextc))
 end
 
+-- Parse Number Value
 local function parse_num_val(str, pos)
   local num_str = str:match('^-?%d+%.?%d*[eE]?[+-]?%d*', pos)
   local val = tonumber(num_str)
-  if not val then error('Error parsing number at position ' .. pos) end
+  if not val then error('JSON Error: Invalid number at position ' .. pos) end
   return val, pos + #num_str
 end
 
+-- Recursive Value Parser
 local function parse_val(str, pos)
   pos = pos + #str:match('^%s*', pos)
   local c = str:sub(pos, pos)
   
-  if c == '' then error('Empty JSON string or unexpected end of input') end
+  if c == '' then error('JSON Error: Unexpected end of input') end
 
   if c == '{' then -- Object
     local obj = {}
@@ -83,9 +99,10 @@ local function parse_val(str, pos)
   elseif str:sub(pos, pos + 3) == 'true' then return true, pos + 4
   elseif str:sub(pos, pos + 4) == 'false' then return false, pos + 5
   elseif str:sub(pos, pos + 3) == 'null' then return nil, pos + 4
-  else error('Unknown token at position ' .. pos .. ': ' .. c) end
+  else error('JSON Error: Unknown token "' .. c .. '" at position ' .. pos) end
 end
 
+-- PUBLIC DECODE
 function json.decode(str)
   if type(str) ~= 'string' then 
       return nil, 'Expected argument of type string, got ' .. type(str) 
@@ -98,16 +115,16 @@ function json.decode(str)
   end
   
   -- === SAFE DECODE ===
-  -- Returns nil instead of crashing if JSON is bad
   local status, res = pcall(parse_val, str, 1)
   
   if status then
       return res
   else
-      return nil, res
+      return nil, res -- Return nil and the error message
   end
 end
 
+-- PUBLIC ENCODE
 function json.encode(val)
     if type(val) == "table" then
         local kind = kind_of(val)
@@ -137,6 +154,5 @@ function json.encode(val)
         return "null"
     end
 end
-
 
 return json

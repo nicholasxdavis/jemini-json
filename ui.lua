@@ -1,8 +1,11 @@
--- ui.lua
 local ui = {}
 local font = nil
 local icon = nil
 local heart = nil
+local images = {}
+
+-- Shader to treat images as solid color masks 
+local mask_shader = nil
 
 function ui.load()
     local status, f = pcall(love.graphics.newFont, "assets/pixelFont.fnt")
@@ -13,13 +16,29 @@ function ui.load()
         font = love.graphics.newFont(12)
     end
     
-    -- Load Main Icon
-    local i_status, img = pcall(love.graphics.newImage, "assets/gemini.png")
-    if i_status then icon = img end
+    mask_shader = love.graphics.newShader[[
+        vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) {
+            vec4 tex_color = Texel(texture, texture_coords);
+            return vec4(color.rgb, tex_color.a * color.a);
+        }
+    ]]
+    
+    local function load_img(key, path)
+        local s, img = pcall(love.graphics.newImage, path)
+        if s then 
+            images[key] = img 
+        else
+            print("Failed to load: " .. path)
+        end
+    end
 
-    -- Load Heart Icon
-    local h_status, h_img = pcall(love.graphics.newImage, "assets/heart.png")
-    if h_status then heart = h_img end
+    load_img("icon", "assets/gemini.png")
+    load_img("heart", "assets/heart.png")
+    load_img("github", "assets/github.png")   
+    load_img("youtube", "assets/youtube.png") 
+    
+    icon = images["icon"]
+    heart = images["heart"]
 end
 
 function ui.get_font() return font end
@@ -47,15 +66,47 @@ function ui.draw_heart(x, y, w, h)
     end
 end
 
+-- Updated to support 'raw_color' mode (disables shader)
+function ui.draw_img(key, x, y, w, h, raw_color)
+    if images[key] then
+        local sx = w / images[key]:getWidth()
+        local sy = h / images[key]:getHeight()
+        
+        if raw_color then
+            -- Draw raw image (preserving original colors like Red/Black)
+            -- We must ensure global color is white so it doesn't tint the image
+            local r,g,b,a = love.graphics.getColor()
+            love.graphics.setColor(1, 1, 1, a) 
+            love.graphics.draw(images[key], x, y, 0, sx, sy)
+            love.graphics.setColor(r,g,b,a) -- Restore previous color
+        else
+            -- Use Mask Shader (Solidify color)
+            love.graphics.setShader(mask_shader)
+            love.graphics.draw(images[key], x, y, 0, sx, sy)
+            love.graphics.setShader()
+        end
+    else
+        -- Fallback: Draw Magenta Box if image missing
+        local r,g,b,a = love.graphics.getColor()
+        love.graphics.setColor(1, 0, 1)
+        love.graphics.rectangle("line", x, y, w, h)
+        love.graphics.setColor(r,g,b,a)
+    end
+end
+
 function ui.draw_panel(x, y, w, h, color)
     love.graphics.setColor(unpack(color))
     love.graphics.rectangle("fill", x, y, w, h)
 end
 
-function ui.print(text_or_table, x, y, scale)
+function ui.print(text_or_table, x, y, scale, color_override)
     scale = scale or 3
     love.graphics.setFont(font)
     
+    if color_override then
+        love.graphics.setColor(unpack(color_override))
+    end
+
     if type(text_or_table) == "table" then
         local status, err = pcall(function() 
             love.graphics.print(text_or_table, x, y, 0, scale, scale)
@@ -65,18 +116,20 @@ function ui.print(text_or_table, x, y, scale)
             love.graphics.print("Error rendering", x, y, 0, scale, scale)
         end
     else
-        -- If no explicit color set, default to dim white
-        local r,g,b,a = love.graphics.getColor()
-        if r==1 and g==1 and b==1 then
-            love.graphics.setColor(0.9, 0.9, 0.9)
+        if not color_override then
+            local r,g,b,a = love.graphics.getColor()
+            if r==1 and g==1 and b==1 then
+                love.graphics.setColor(0.9, 0.9, 0.9)
+            end
         end
         love.graphics.print(tostring(text_or_table), x, y, 0, scale, scale)
     end
 end
 
-function ui.draw_button(text, x, y, w, h)
+function ui.draw_button(text, x, y, w, h, active)
     local mx, my = love.mouse.getPosition()
     local hover = mx >= x and mx <= x+w and my >= y and my <= y+h
+    if active ~= nil then hover = active end
     
     if hover then
         love.graphics.setColor(0.25, 0.25, 0.3)
