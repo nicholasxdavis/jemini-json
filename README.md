@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/nicholasxdavis/jemini-json">
-    <img src="https://github.com/nicholasxdavis/jemini-json/blob/main/jemini-logo.png?raw=true" alt="Logo">
+    <img src="https://github.com/nicholasxdavis/jemini-json/blob/main/updated-jemini-logo.png?raw=true" alt="Logo">
   </a>
 </p>
 <p align="center">
