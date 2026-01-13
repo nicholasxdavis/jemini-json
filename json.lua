@@ -1,6 +1,5 @@
 -- ==========================================================
--- INTERNAL JSON PARSER (Zero Dependencies)
--- Adapted for Love2D Library Use
+-- JSON PARSER
 -- ==========================================================
 local json = {}
 
@@ -138,5 +137,6 @@ function json.encode(val)
         return "null"
     end
 end
+
 
 return json
